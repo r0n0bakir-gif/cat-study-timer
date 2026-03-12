@@ -12,7 +12,6 @@
   --shadow: 0 18px 44px rgba(20, 46, 30, 0.12);
   --accent: #3f7f57;
   --accent-2: #699e79;
-  --accent-3: #bdd5c3;
   --accent-break: #8f9af0;
   --accent-break-2: #b7c1fb;
   --track: rgba(63, 127, 87, 0.18);
@@ -29,7 +28,6 @@
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
   --accent: #78d69b;
   --accent-2: #9ef0b8;
-  --accent-3: rgba(120, 214, 155, 0.14);
   --accent-break: #9fa7ff;
   --accent-break-2: #c5cbff;
   --track: rgba(120, 214, 155, 0.12);
@@ -247,7 +245,10 @@ button {
   border: 1px solid var(--card-border);
   box-shadow: var(--shadow);
   backdrop-filter: blur(18px);
-  transition: opacity 0.25s ease, transform 0.25s ease, border-color 0.25s ease,
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease,
+    border-color 0.25s ease,
     background 0.35s ease;
 }
 
@@ -270,7 +271,9 @@ button {
 
 .app.focus-active .timer-panel {
   border-color: rgba(120, 214, 155, 0.28);
-  box-shadow: 0 28px 70px rgba(10, 20, 15, 0.4), 0 0 0 1px rgba(120, 214, 155, 0.15);
+  box-shadow:
+    0 28px 70px rgba(10, 20, 15, 0.4),
+    0 0 0 1px rgba(120, 214, 155, 0.15);
 }
 
 .app.break.focus-active .timer-panel {
@@ -348,7 +351,10 @@ button {
   border-radius: 16px;
   padding: 12px 18px;
   cursor: pointer;
-  transition: transform 0.2s ease, opacity 0.2s ease, background 0.25s ease,
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease,
+    background 0.25s ease,
     border-color 0.25s ease;
 }
 
@@ -522,7 +528,9 @@ button {
 .summary-row span,
 .focus-state-card p,
 .next-unlock-card small,
-.mini-panel-label {
+.mini-panel-label,
+.cat-evolution-label,
+.collection-info p {
   color: var(--muted);
 }
 
@@ -551,22 +559,6 @@ button {
   background: var(--pill);
 }
 
-.cat-badge.studying {
-  color: #206a42;
-}
-
-.cat-badge.sleeping {
-  color: #5f63b0;
-}
-
-.cat-badge.celebrating {
-  color: #b05d1b;
-}
-
-.cat-badge.ready {
-  color: var(--muted);
-}
-
 .cat-frame {
   width: 220px;
   height: 220px;
@@ -581,18 +573,6 @@ button {
 
 .app.dark .cat-frame {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
-}
-
-.cat-frame.studying {
-  box-shadow: 0 0 0 8px rgba(94, 176, 123, 0.08);
-}
-
-.cat-frame.sleeping {
-  box-shadow: 0 0 0 8px rgba(121, 126, 236, 0.08);
-}
-
-.cat-frame.celebrating {
-  box-shadow: 0 0 0 8px rgba(255, 180, 84, 0.12);
 }
 
 .pulse-ring {
@@ -613,19 +593,6 @@ button {
   z-index: 1;
 }
 
-.cat-image.studying {
-  animation: focusPulse 2.2s infinite ease-in-out;
-}
-
-.cat-image.sleeping {
-  animation: sleepyFloat 2.4s infinite alternate ease-in-out;
-  filter: saturate(0.9);
-}
-
-.cat-image.celebrating {
-  animation: celebrateBounce 0.9s infinite alternate ease-in-out;
-}
-
 .cat-copy {
   margin: 10px 0 8px;
   max-width: 280px;
@@ -636,6 +603,23 @@ button {
   color: var(--text);
   opacity: 0.8;
   max-width: 290px;
+}
+
+.cat-evolution-label {
+  margin: -4px 0 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.unlock-popup {
+  margin: 10px 0 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(126, 227, 176, 0.16);
+  border: 1px solid rgba(126, 227, 176, 0.3);
+  color: var(--text);
+  font-weight: 700;
+  animation: unlockPop 0.35s ease;
 }
 
 .energy-card,
@@ -739,9 +723,8 @@ button {
 }
 
 .xp-meta-grid {
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 16px;
 }
 
 .next-unlock-card,
@@ -835,33 +818,117 @@ button {
   line-height: 1.55;
 }
 
-@keyframes focusPulse {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(94, 176, 123, 0.25);
-  }
-  100% {
-    transform: scale(1.02);
-    box-shadow: 0 0 0 12px rgba(94, 176, 123, 0);
-  }
+.collection-panel {
+  margin-top: 24px;
 }
 
-@keyframes sleepyFloat {
-  from {
-    transform: rotate(-3deg) translateY(0px);
-  }
-  to {
-    transform: rotate(3deg) translateY(6px);
-  }
+.cat-collection-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 18px;
+  margin-top: 18px;
 }
 
-@keyframes celebrateBounce {
-  from {
-    transform: translateY(0px) rotate(-2deg);
-  }
-  to {
-    transform: translateY(-8px) rotate(2deg);
-  }
+.collection-card {
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition:
+    transform 0.25s ease,
+    border-color 0.25s ease,
+    box-shadow 0.25s ease,
+    opacity 0.25s ease;
+  padding: 0;
+  text-align: left;
+  width: 100%;
+  color: inherit;
+  cursor: pointer;
+}
+
+.collection-card:disabled {
+  cursor: not-allowed;
+}
+
+.collection-card.unlocked:hover {
+  transform: translateY(-4px);
+}
+
+.collection-card.unlocked:active {
+  transform: translateY(-1px) scale(0.99);
+}
+
+.collection-card.unlocked {
+  border-color: rgba(126, 227, 176, 0.25);
+}
+
+.collection-card.current {
+  box-shadow: 0 0 0 2px rgba(126, 227, 176, 0.35);
+}
+
+.collection-card.locked {
+  opacity: 0.82;
+}
+
+.collection-image-wrap {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+}
+
+.collection-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s ease, filter 0.35s ease;
+}
+
+.collection-card:hover .collection-image {
+  transform: scale(1.04);
+}
+
+.collection-card.locked .collection-image {
+  filter: grayscale(1) brightness(0.72);
+}
+
+.collection-lock,
+.collection-current-badge {
+  position: absolute;
+  left: 12px;
+  z-index: 2;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  backdrop-filter: blur(10px);
+}
+
+.collection-lock {
+  top: 12px;
+  background: rgba(20, 20, 20, 0.72);
+  color: #fff;
+}
+
+.collection-current-badge {
+  bottom: 12px;
+  background: rgba(126, 227, 176, 0.9);
+  color: #102018;
+}
+
+.collection-info {
+  padding: 14px;
+}
+
+.collection-info h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.collection-info p {
+  margin: 0;
+  font-size: 0.9rem;
 }
 
 @keyframes pulseRing {
@@ -900,6 +967,17 @@ button {
   }
 }
 
+@keyframes unlockPop {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @media (max-width: 980px) {
   .hero-grid,
   .bottom-grid,
@@ -932,11 +1010,13 @@ button {
 
   .mode-row,
   .controls,
-  .timer-status-row,
+  .timer-status-row {
+    flex-direction: column;
+  }
+
   .xp-meta-grid,
   .cat-stats-mini {
     grid-template-columns: 1fr;
-    flex-direction: column;
   }
 
   .mode-btn,
@@ -956,5 +1036,9 @@ button {
 
   .weekly-bars {
     gap: 8px;
+  }
+
+  .cat-collection-grid {
+    grid-template-columns: 1fr 1fr;
   }
 }
