@@ -423,7 +423,7 @@ const getHeatmapCellStyle = (paletteKey, intensity) => ({
   background: (HEATMAP_PALETTES[paletteKey] || HEATMAP_PALETTES.mint)[intensity] || HEATMAP_PALETTES.mint[0],
 });
 
-const getSpotifyRedirectUri = () => `${window.location.origin}${window.location.pathname}`;
+const getSpotifyRedirectUri = () => `${window.location.origin}/callback`;
 
 const randomSpotifyString = (length = 64) => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
