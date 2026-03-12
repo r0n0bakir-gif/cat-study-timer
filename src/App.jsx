@@ -647,8 +647,7 @@ export default function App() {
   }, [spotifyAccessToken]);
 
   const spotifyClientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
-const spotifyRedirectUri = "https://cat-study-timer.vercel.app/callback";
-
+const spotifyRedirectUri = "https://cat-study-timer.vercel.app";
   const spotifyApi = async (endpoint, options = {}) => {
     if (!spotifyTokenRef.current) return null;
 
