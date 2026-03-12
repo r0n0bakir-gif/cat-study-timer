@@ -19,6 +19,78 @@
   --pill: rgba(222, 232, 225, 0.94);
 }
 
+.app {
+  --accent-rgb: 63, 127, 87;
+  --accent-soft-rgb: 105, 158, 121;
+  --accent-break-rgb: 143, 154, 240;
+}
+
+.app.theme-green {
+  --accent: #3f7f57;
+  --accent-2: #699e79;
+  --accent-break: #8f9af0;
+  --accent-break-2: #b7c1fb;
+  --track: rgba(63, 127, 87, 0.18);
+  --accent-rgb: 63, 127, 87;
+  --accent-soft-rgb: 105, 158, 121;
+  --accent-break-rgb: 143, 154, 240;
+}
+
+.app.theme-blue {
+  --accent: #3f6fd9;
+  --accent-2: #78b2ff;
+  --accent-break: #7fa6ff;
+  --accent-break-2: #b6d0ff;
+  --track: rgba(63, 111, 217, 0.18);
+  --accent-rgb: 63, 111, 217;
+  --accent-soft-rgb: 120, 178, 255;
+  --accent-break-rgb: 127, 166, 255;
+}
+
+.app.theme-pink {
+  --accent: #cf4f93;
+  --accent-2: #f39ac7;
+  --accent-break: #9d8cff;
+  --accent-break-2: #cabdff;
+  --track: rgba(207, 79, 147, 0.18);
+  --accent-rgb: 207, 79, 147;
+  --accent-soft-rgb: 243, 154, 199;
+  --accent-break-rgb: 157, 140, 255;
+}
+
+.app.theme-purple {
+  --accent: #7353d8;
+  --accent-2: #ab96ff;
+  --accent-break: #8e7bff;
+  --accent-break-2: #c2b8ff;
+  --track: rgba(115, 83, 216, 0.18);
+  --accent-rgb: 115, 83, 216;
+  --accent-soft-rgb: 171, 150, 255;
+  --accent-break-rgb: 142, 123, 255;
+}
+
+.app.theme-yellow {
+  --accent: #b78b1f;
+  --accent-2: #f0cb63;
+  --accent-break: #d3a74a;
+  --accent-break-2: #f5d98c;
+  --track: rgba(183, 139, 31, 0.18);
+  --accent-rgb: 183, 139, 31;
+  --accent-soft-rgb: 240, 203, 99;
+  --accent-break-rgb: 211, 167, 74;
+}
+
+.app.theme-brown {
+  --accent: #8a5c3b;
+  --accent-2: #cca07c;
+  --accent-break: #a57e63;
+  --accent-break-2: #d8bda9;
+  --track: rgba(138, 92, 59, 0.18);
+  --accent-rgb: 138, 92, 59;
+  --accent-soft-rgb: 204, 160, 124;
+  --accent-break-rgb: 165, 126, 99;
+}
+
 .app.dark {
   --bg: #09110d;
   --bg-2: #101a15;
@@ -28,12 +100,68 @@
   --card-border: rgba(255, 255, 255, 0.08);
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
   --shadow-strong: 0 28px 80px rgba(0, 0, 0, 0.45);
+  --track: rgba(var(--accent-rgb), 0.12);
+  --pill: rgba(255, 255, 255, 0.06);
+}
+
+.app.dark.theme-green {
   --accent: #78d69b;
   --accent-2: #9ef0b8;
   --accent-break: #9fa7ff;
   --accent-break-2: #c5cbff;
-  --track: rgba(120, 214, 155, 0.12);
-  --pill: rgba(255, 255, 255, 0.06);
+  --accent-rgb: 120, 214, 155;
+  --accent-soft-rgb: 158, 240, 184;
+  --accent-break-rgb: 159, 167, 255;
+}
+
+.app.dark.theme-blue {
+  --accent: #71a8ff;
+  --accent-2: #a8ceff;
+  --accent-break: #9ab9ff;
+  --accent-break-2: #c8dbff;
+  --accent-rgb: 113, 168, 255;
+  --accent-soft-rgb: 168, 206, 255;
+  --accent-break-rgb: 154, 185, 255;
+}
+
+.app.dark.theme-pink {
+  --accent: #ef78b7;
+  --accent-2: #ffc0de;
+  --accent-break: #b7a3ff;
+  --accent-break-2: #d8cdff;
+  --accent-rgb: 239, 120, 183;
+  --accent-soft-rgb: 255, 192, 222;
+  --accent-break-rgb: 183, 163, 255;
+}
+
+.app.dark.theme-purple {
+  --accent: #a78bff;
+  --accent-2: #c9bbff;
+  --accent-break: #b7abff;
+  --accent-break-2: #dad3ff;
+  --accent-rgb: 167, 139, 255;
+  --accent-soft-rgb: 201, 187, 255;
+  --accent-break-rgb: 183, 171, 255;
+}
+
+.app.dark.theme-yellow {
+  --accent: #e6c25a;
+  --accent-2: #f6dea0;
+  --accent-break: #edc97a;
+  --accent-break-2: #f8e3af;
+  --accent-rgb: 230, 194, 90;
+  --accent-soft-rgb: 246, 222, 160;
+  --accent-break-rgb: 237, 201, 122;
+}
+
+.app.dark.theme-brown {
+  --accent: #ca9b76;
+  --accent-2: #e4c5ab;
+  --accent-break: #d8b095;
+  --accent-break-2: #ecd2c2;
+  --accent-rgb: 202, 155, 118;
+  --accent-soft-rgb: 228, 197, 171;
+  --accent-break-rgb: 216, 176, 149;
 }
 
 html,
@@ -66,16 +194,16 @@ button {
   overflow-x: hidden;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, rgba(72, 132, 94, 0.14), transparent 34%),
-    radial-gradient(circle at right, rgba(108, 126, 194, 0.08), transparent 30%),
+    radial-gradient(circle at top left, rgba(var(--accent-rgb), 0.14), transparent 34%),
+    radial-gradient(circle at right, rgba(var(--accent-break-rgb), 0.08), transparent 30%),
     linear-gradient(135deg, var(--bg), var(--bg-2));
   transition: background 0.45s ease, color 0.35s ease;
 }
 
 .app.break {
   background:
-    radial-gradient(circle at top left, rgba(125, 135, 212, 0.14), transparent 34%),
-    radial-gradient(circle at right, rgba(72, 132, 94, 0.07), transparent 30%),
+    radial-gradient(circle at top left, rgba(var(--accent-break-rgb), 0.14), transparent 34%),
+    radial-gradient(circle at right, rgba(var(--accent-rgb), 0.07), transparent 30%),
     linear-gradient(135deg, var(--bg), var(--bg-2));
 }
 
@@ -97,7 +225,7 @@ button {
   height: 280px;
   left: -70px;
   top: 30px;
-  background: rgba(63, 127, 87, 0.16);
+  background: rgba(var(--accent-rgb), 0.16);
 }
 
 .background-glow-2 {
@@ -105,7 +233,7 @@ button {
   height: 260px;
   right: -80px;
   top: 120px;
-  background: rgba(125, 135, 212, 0.1);
+  background: rgba(var(--accent-break-rgb), 0.1);
   animation-delay: -4s;
 }
 
@@ -114,7 +242,7 @@ button {
   height: 220px;
   left: 30%;
   bottom: 80px;
-  background: rgba(63, 127, 87, 0.08);
+  background: rgba(var(--accent-rgb), 0.08);
   animation-delay: -7s;
 }
 
@@ -209,6 +337,58 @@ button {
   color: var(--muted);
   max-width: 660px;
   font-size: 1.02rem;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.theme-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 18px;
+}
+
+.theme-picker-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.theme-picker-swatches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.28),
+    0 1px 3px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.theme-swatch:hover {
+  transform: translateY(-1px) scale(1.06);
+}
+
+.theme-swatch.active {
+  border-color: var(--text);
+  box-shadow:
+    0 0 0 3px rgba(var(--accent-rgb), 0.18),
+    inset 0 1px 1px rgba(255, 255, 255, 0.28);
 }
 
 .theme-toggle {
@@ -1274,8 +1454,24 @@ button {
 
   .mode-btn,
   .main-btn,
-  .theme-toggle {
+  .theme-toggle,
+  .theme-picker {
     width: 100%;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .theme-picker {
+    justify-content: space-between;
+  }
+
+  .theme-picker-swatches {
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .summary-row,
@@ -1887,88 +2083,5 @@ button {
   .heatmap-weekdays {
     grid-template-rows: repeat(7, 18px);
     gap: 7px;
-  }
-}
-/* ---------- Professional polish additions ---------- */
-
-.subtitle {
-  max-width: 560px;
-  line-height: 1.55;
-}
-
-.today-plan-card {
-  margin: 0 0 18px;
-  padding: 18px;
-  border-radius: 24px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-.today-plan-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 14px;
-  margin-bottom: 14px;
-}
-
-.today-plan-head h3 {
-  margin: 0;
-  font-size: 1.1rem;
-  letter-spacing: -0.02em;
-}
-
-.today-plan-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
-.today-plan-note {
-  margin: 12px 0 0;
-  color: var(--muted);
-  line-height: 1.5;
-  font-size: 0.95rem;
-}
-
-.topbar {
-  margin-bottom: 20px;
-}
-
-.panel h2 {
-  font-size: 1.45rem;
-}
-
-.section-label {
-  margin-bottom: 6px;
-}
-
-.stat-sub {
-  line-height: 1.45;
-}
-
-.summary-panel .summary-row strong,
-.today-plan-card strong,
-.analytics-stat-card strong {
-  letter-spacing: -0.02em;
-}
-
-.app.focus-active .glass:not(.timer-panel):not(.cat-panel) {
-  opacity: 0.95;
-}
-
-.empty-state-card {
-  line-height: 1.5;
-}
-
-@media (max-width: 700px) {
-  .today-plan-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .today-plan-head {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
