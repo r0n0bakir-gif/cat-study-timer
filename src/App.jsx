@@ -242,30 +242,29 @@ const BREAK_SUGGESTIONS = [
   "Take 5 slow breaths",
 ];
 
-const HEATMAP_THEMES = {
-  mint: {
-    label: "Mint",
-    scale: ["rgba(255,255,255,0.08)", "rgba(126, 227, 176, 0.24)", "rgba(126, 227, 176, 0.42)", "rgba(106, 180, 255, 0.58)", "rgba(106, 180, 255, 0.92)"],
-  },
-  sunset: {
-    label: "Sunset",
-    scale: ["rgba(255,255,255,0.08)", "rgba(255, 176, 122, 0.24)", "rgba(255, 147, 117, 0.42)", "rgba(255, 110, 118, 0.6)", "rgba(255, 88, 109, 0.92)"],
-  },
-  lavender: {
-    label: "Lavender",
-    scale: ["rgba(255,255,255,0.08)", "rgba(193, 174, 255, 0.24)", "rgba(171, 151, 255, 0.42)", "rgba(140, 127, 255, 0.62)", "rgba(116, 102, 255, 0.94)"],
-  },
-  gold: {
-    label: "Gold",
-    scale: ["rgba(255,255,255,0.08)", "rgba(247, 215, 110, 0.22)", "rgba(244, 192, 94, 0.4)", "rgba(241, 166, 74, 0.58)", "rgba(238, 141, 56, 0.94)"],
-  },
-};
-
 const STORAGE_KEY = "cat-study-pro-dashboard";
 const XP_PER_SESSION = 10;
 const XP_PER_LEVEL = 50;
 const QUEST_SESSION_TARGET = 3;
 const QUEST_MINUTES_TARGET = 60;
+
+const HEATMAP_PALETTES = {
+  mint: ["rgba(255,255,255,0.08)", "rgba(126, 227, 176, 0.2)", "rgba(126, 227, 176, 0.38)", "rgba(106, 180, 255, 0.5)", "rgba(106, 180, 255, 0.9)"],
+  sunset: ["rgba(255,255,255,0.08)", "rgba(255, 178, 107, 0.18)", "rgba(255, 148, 112, 0.36)", "rgba(255, 108, 139, 0.56)", "rgba(255, 86, 118, 0.92)"],
+  violet: ["rgba(255,255,255,0.08)", "rgba(154, 140, 255, 0.18)", "rgba(131, 120, 255, 0.34)", "rgba(107, 94, 255, 0.58)", "rgba(93, 80, 255, 0.92)"],
+  amber: ["rgba(255,255,255,0.08)", "rgba(245, 205, 108, 0.16)", "rgba(237, 173, 88, 0.34)", "rgba(229, 145, 60, 0.58)", "rgba(224, 133, 43, 0.9)"],
+};
+
+const SPOTIFY_SCOPES = [
+  "streaming",
+  "user-read-email",
+  "user-read-private",
+  "user-read-playback-state",
+  "user-read-currently-playing",
+  "user-modify-playback-state",
+  "playlist-read-private",
+  "playlist-read-collaborative",
+];
 
 const todayString = () => new Date().toISOString().slice(0, 10);
 
@@ -346,7 +345,13 @@ const getInitialData = () => {
     sessionHistory: [],
     selectedSound: "none",
     soundVolume: 55,
-    heatmapTheme: "mint",
+    heatmapPalette: "mint",
+    spotifyAccessToken: "",
+    spotifyRefreshToken: "",
+    spotifyTokenExpiresAt: 0,
+    spotifyProfile: null,
+    spotifySelectedPlaylistId: "",
+    spotifyVolume: 65,
   };
 
   try {
@@ -414,6 +419,33 @@ const getWeeklyHeatmapColumns = (days) => {
   return columns;
 };
 
+const getHeatmapCellStyle = (paletteKey, intensity) => ({
+  background: (HEATMAP_PALETTES[paletteKey] || HEATMAP_PALETTES.mint)[intensity] || HEATMAP_PALETTES.mint[0],
+});
+
+const getSpotifyRedirectUri = () => `${window.location.origin}${window.location.pathname}`;
+
+const randomSpotifyString = (length = 64) => {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const values = new Uint8Array(length);
+  window.crypto.getRandomValues(values);
+  return Array.from(values, (value) => chars[value % chars.length]).join("");
+};
+
+const base64UrlEncode = (arrayBuffer) =>
+  btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+
+const sha256 = async (plain) => window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(plain));
+
+const createSpotifyAuthChallenge = async () => {
+  const verifier = randomSpotifyString(96);
+  const challenge = base64UrlEncode(await sha256(verifier));
+  return { verifier, challenge };
+};
+
 export default function App() {
   const initial = getInitialData();
 
@@ -439,9 +471,25 @@ export default function App() {
   const [sessionHistory, setSessionHistory] = useState(initial.sessionHistory);
   const [selectedSound, setSelectedSound] = useState(initial.selectedSound);
   const [soundVolume, setSoundVolume] = useState(initial.soundVolume);
-  const [heatmapTheme, setHeatmapTheme] = useState(initial.heatmapTheme || "mint");
+  const [heatmapPalette, setHeatmapPalette] = useState(initial.heatmapPalette);
+  const [spotifyAccessToken, setSpotifyAccessToken] = useState(initial.spotifyAccessToken);
+  const [spotifyRefreshToken, setSpotifyRefreshToken] = useState(initial.spotifyRefreshToken);
+  const [spotifyTokenExpiresAt, setSpotifyTokenExpiresAt] = useState(initial.spotifyTokenExpiresAt);
+  const [spotifyProfile, setSpotifyProfile] = useState(initial.spotifyProfile);
+  const [spotifySelectedPlaylistId, setSpotifySelectedPlaylistId] = useState(initial.spotifySelectedPlaylistId);
+  const [spotifyVolume, setSpotifyVolume] = useState(initial.spotifyVolume);
+  const [spotifyPlaylists, setSpotifyPlaylists] = useState([]);
+  const [spotifyCurrentTrack, setSpotifyCurrentTrack] = useState(null);
+  const [spotifyPlayerPaused, setSpotifyPlayerPaused] = useState(true);
+  const [spotifyDeviceId, setSpotifyDeviceId] = useState("");
+  const [spotifyReady, setSpotifyReady] = useState(false);
+  const [spotifyBusy, setSpotifyBusy] = useState(false);
+  const [spotifyError, setSpotifyError] = useState("");
 
   const ambientAudioRef = useRef(null);
+  const spotifyPlayerRef = useRef(null);
+  const spotifyTokenRef = useRef(initial.spotifyAccessToken);
+  const spotifySdkInitRef = useRef(false);
 
   const [mode, setMode] = useState("study");
   const [timeLeft, setTimeLeft] = useState(initial.studyMinutes * 60);
@@ -484,7 +532,13 @@ export default function App() {
         sessionHistory,
         selectedSound,
         soundVolume,
-        heatmapTheme,
+        heatmapPalette,
+        spotifyAccessToken,
+        spotifyRefreshToken,
+        spotifyTokenExpiresAt,
+        spotifyProfile,
+        spotifySelectedPlaylistId,
+        spotifyVolume,
       })
     );
   }, [
@@ -509,7 +563,13 @@ export default function App() {
     sessionHistory,
     selectedSound,
     soundVolume,
-    heatmapTheme,
+    heatmapPalette,
+    spotifyAccessToken,
+    spotifyRefreshToken,
+    spotifyTokenExpiresAt,
+    spotifyProfile,
+    spotifySelectedPlaylistId,
+    spotifyVolume,
   ]);
 
   useEffect(() => {
@@ -581,6 +641,397 @@ export default function App() {
       stopAmbientSound();
     };
   }, []);
+
+  useEffect(() => {
+    spotifyTokenRef.current = spotifyAccessToken;
+  }, [spotifyAccessToken]);
+
+  const spotifyClientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
+  const spotifyRedirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || getSpotifyRedirectUri();
+
+  const spotifyApi = async (endpoint, options = {}) => {
+    if (!spotifyTokenRef.current) return null;
+
+    const response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${spotifyTokenRef.current}`,
+        ...(options.headers || {}),
+      },
+    });
+
+    if (response.status === 204) return null;
+
+    if (response.status === 401) {
+      throw new Error("Spotify session expired. Connect again.");
+    }
+
+    if (!response.ok) {
+      let message = "Spotify request failed.";
+      try {
+        const payload = await response.json();
+        message = payload?.error?.message || payload?.error_description || message;
+      } catch {
+        // ignore parse errors
+      }
+      throw new Error(message);
+    }
+
+    return response.json();
+  };
+
+  const fetchSpotifyPlayback = async () => {
+    if (!spotifyTokenRef.current) return;
+
+    try {
+      const playback = await spotifyApi("/me/player");
+      const item = playback?.item;
+
+      if (!item) return;
+
+      setSpotifyPlayerPaused(Boolean(playback?.is_playing === false));
+      setSpotifyCurrentTrack({
+        id: item.id,
+        name: item.name,
+        artists: item.artists?.map((artist) => artist.name).join(", "),
+        album: item.album?.name,
+        image: item.album?.images?.[0]?.url || "",
+        url: item.external_urls?.spotify || "",
+      });
+    } catch (error) {
+      setSpotifyError(error.message);
+    }
+  };
+
+  const fetchSpotifyCatalog = async () => {
+    if (!spotifyTokenRef.current) return;
+
+    try {
+      const [profile, playlists] = await Promise.all([
+        spotifyApi("/me"),
+        spotifyApi("/me/playlists?limit=12"),
+      ]);
+
+      setSpotifyProfile(profile || null);
+      setSpotifyPlaylists(playlists?.items || []);
+
+      if (!spotifySelectedPlaylistId && playlists?.items?.length) {
+        setSpotifySelectedPlaylistId(playlists.items[0].id);
+      }
+    } catch (error) {
+      setSpotifyError(error.message);
+    }
+  };
+
+  const refreshSpotifyToken = async () => {
+    if (!spotifyRefreshToken || !spotifyClientId) return;
+
+    try {
+      const body = new URLSearchParams({
+        client_id: spotifyClientId,
+        grant_type: "refresh_token",
+        refresh_token: spotifyRefreshToken,
+      });
+
+      const response = await fetch("https://accounts.spotify.com/api/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body,
+      });
+
+      if (!response.ok) {
+        throw new Error("Could not refresh Spotify access.");
+      }
+
+      const payload = await response.json();
+      setSpotifyAccessToken(payload.access_token || "");
+      setSpotifyTokenExpiresAt(Date.now() + (payload.expires_in || 3600) * 1000);
+      if (payload.refresh_token) {
+        setSpotifyRefreshToken(payload.refresh_token);
+      }
+    } catch (error) {
+      setSpotifyError(error.message);
+    }
+  };
+
+  const disconnectSpotify = () => {
+    setSpotifyAccessToken("");
+    setSpotifyRefreshToken("");
+    setSpotifyTokenExpiresAt(0);
+    setSpotifyProfile(null);
+    setSpotifyPlaylists([]);
+    setSpotifyCurrentTrack(null);
+    setSpotifySelectedPlaylistId("");
+    setSpotifyDeviceId("");
+    setSpotifyReady(false);
+    setSpotifyPlayerPaused(true);
+    setSpotifyError("");
+    if (spotifyPlayerRef.current) {
+      spotifyPlayerRef.current.disconnect();
+      spotifyPlayerRef.current = null;
+      spotifySdkInitRef.current = false;
+    }
+  };
+
+  const connectSpotify = async () => {
+    if (!spotifyClientId) {
+      setSpotifyError("Add VITE_SPOTIFY_CLIENT_ID to your .env file first.");
+      return;
+    }
+
+    try {
+      setSpotifyBusy(true);
+      setSpotifyError("");
+      const { verifier, challenge } = await createSpotifyAuthChallenge();
+      const state = randomSpotifyString(24);
+
+      sessionStorage.setItem("spotify_code_verifier", verifier);
+      sessionStorage.setItem("spotify_auth_state", state);
+
+      const params = new URLSearchParams({
+        client_id: spotifyClientId,
+        response_type: "code",
+        redirect_uri: spotifyRedirectUri,
+        code_challenge_method: "S256",
+        code_challenge: challenge,
+        state,
+        scope: SPOTIFY_SCOPES.join(" "),
+      });
+
+      window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
+    } catch (error) {
+      setSpotifyBusy(false);
+      setSpotifyError(error.message);
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    const error = params.get("error");
+
+    if (error) {
+      setSpotifyError(`Spotify login was cancelled: ${error}`);
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
+    if (!code) return;
+
+    const expectedState = sessionStorage.getItem("spotify_auth_state");
+    const verifier = sessionStorage.getItem("spotify_code_verifier");
+
+    if (!verifier || !expectedState || state !== expectedState) {
+      setSpotifyError("Spotify sign-in could not be verified. Try again.");
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
+
+    const exchange = async () => {
+      try {
+        setSpotifyBusy(true);
+        const body = new URLSearchParams({
+          client_id: spotifyClientId,
+          grant_type: "authorization_code",
+          code,
+          redirect_uri: spotifyRedirectUri,
+          code_verifier: verifier,
+        });
+
+        const response = await fetch("https://accounts.spotify.com/api/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body,
+        });
+
+        if (!response.ok) {
+          throw new Error("Spotify token exchange failed.");
+        }
+
+        const payload = await response.json();
+        setSpotifyAccessToken(payload.access_token || "");
+        setSpotifyRefreshToken(payload.refresh_token || "");
+        setSpotifyTokenExpiresAt(Date.now() + (payload.expires_in || 3600) * 1000);
+        setSpotifyError("");
+        sessionStorage.removeItem("spotify_code_verifier");
+        sessionStorage.removeItem("spotify_auth_state");
+      } catch (exchangeError) {
+        setSpotifyError(exchangeError.message);
+      } finally {
+        setSpotifyBusy(false);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    };
+
+    exchange();
+  }, []);
+
+  useEffect(() => {
+    if (!spotifyRefreshToken || !spotifyTokenExpiresAt || !spotifyClientId) return;
+
+    const refreshLead = 60 * 1000;
+    const delay = Math.max(5000, spotifyTokenExpiresAt - Date.now() - refreshLead);
+    const timeout = window.setTimeout(() => {
+      refreshSpotifyToken();
+    }, delay);
+
+    return () => window.clearTimeout(timeout);
+  }, [spotifyRefreshToken, spotifyTokenExpiresAt, spotifyClientId]);
+
+  useEffect(() => {
+    if (!spotifyAccessToken) return;
+
+    fetchSpotifyCatalog();
+    fetchSpotifyPlayback();
+
+    const interval = window.setInterval(() => {
+      fetchSpotifyPlayback();
+    }, 15000);
+
+    return () => window.clearInterval(interval);
+  }, [spotifyAccessToken]);
+
+  const transferSpotifyPlayback = async (deviceId, shouldPlay = false) => {
+    if (!deviceId) return;
+
+    try {
+      await spotifyApi("/me/player", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ device_ids: [deviceId], play: shouldPlay }),
+      });
+      setSpotifyReady(true);
+    } catch (error) {
+      setSpotifyError(error.message);
+    }
+  };
+
+  useEffect(() => {
+    if (!spotifyAccessToken || spotifySdkInitRef.current) return;
+
+    const initPlayer = () => {
+      if (!window.Spotify || spotifyPlayerRef.current) return;
+
+      const player = new window.Spotify.Player({
+        name: "Cat Focus Player",
+        getOAuthToken: (callback) => callback(spotifyTokenRef.current),
+        volume: spotifyVolume / 100,
+      });
+
+      player.addListener("ready", ({ device_id }) => {
+        setSpotifyDeviceId(device_id);
+        setSpotifyReady(true);
+        setSpotifyError("");
+        transferSpotifyPlayback(device_id, false);
+      });
+
+      player.addListener("not_ready", () => {
+        setSpotifyReady(false);
+      });
+
+      player.addListener("player_state_changed", (state) => {
+        if (!state) return;
+        const track = state.track_window?.current_track;
+        if (!track) return;
+
+        setSpotifyPlayerPaused(state.paused);
+        setSpotifyCurrentTrack({
+          id: track.id,
+          name: track.name,
+          artists: track.artists?.map((artist) => artist.name).join(", "),
+          album: track.album?.name,
+          image: track.album?.images?.[0]?.url || "",
+          url: track.linked_from?.external_urls?.spotify || track.uri,
+        });
+      });
+
+      ["authentication_error", "account_error", "playback_error", "initialization_error"].forEach((eventName) => {
+        player.addListener(eventName, ({ message }) => {
+          setSpotifyError(message || "Spotify player error.");
+        });
+      });
+
+      player.connect();
+      spotifyPlayerRef.current = player;
+      spotifySdkInitRef.current = true;
+    };
+
+    if (window.Spotify) {
+      initPlayer();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://sdk.scdn.co/spotify-player.js";
+    script.async = true;
+    document.body.appendChild(script);
+    window.onSpotifyWebPlaybackSDKReady = initPlayer;
+  }, [spotifyAccessToken]);
+
+  useEffect(() => {
+    if (!spotifyPlayerRef.current) return;
+    spotifyPlayerRef.current.setVolume(spotifyVolume / 100).catch(() => {});
+  }, [spotifyVolume]);
+
+  const spotifySelectedPlaylist = spotifyPlaylists.find((playlist) => playlist.id === spotifySelectedPlaylistId) || spotifyPlaylists[0] || null;
+
+  const startSpotifyPlaylist = async () => {
+    if (!spotifySelectedPlaylist) {
+      setSpotifyError("Pick a playlist first.");
+      return;
+    }
+
+    if (!spotifyDeviceId) {
+      setSpotifyError("Spotify player is still connecting. Wait a moment and try again.");
+      return;
+    }
+
+    try {
+      setSpotifyBusy(true);
+      setSpotifyError("");
+      await transferSpotifyPlayback(spotifyDeviceId, false);
+      await spotifyApi(`/me/player/play?device_id=${spotifyDeviceId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ context_uri: spotifySelectedPlaylist.uri }),
+      });
+      setSpotifyPlayerPaused(false);
+      fetchSpotifyPlayback();
+    } catch (error) {
+      setSpotifyError(error.message);
+    } finally {
+      setSpotifyBusy(false);
+    }
+  };
+
+  const pauseSpotify = async () => {
+    try {
+      await spotifyApi(`/me/player/pause?device_id=${spotifyDeviceId}`, { method: "PUT" });
+      setSpotifyPlayerPaused(true);
+    } catch (error) {
+      setSpotifyError(error.message);
+    }
+  };
+
+  const resumeSpotify = async () => {
+    try {
+      await spotifyApi(`/me/player/play?device_id=${spotifyDeviceId}`, { method: "PUT" });
+      setSpotifyPlayerPaused(false);
+    } catch (error) {
+      setSpotifyError(error.message);
+    }
+  };
+
+  const skipSpotify = async (direction = "next") => {
+    try {
+      await spotifyApi(`/me/player/${direction}?device_id=${spotifyDeviceId}`, { method: "POST" });
+      window.setTimeout(fetchSpotifyPlayback, 450);
+    } catch (error) {
+      setSpotifyError(error.message);
+    }
+  };
+
 
   const pushMessage = (message) => {
     setUnlockMessage(message);
@@ -855,8 +1306,6 @@ export default function App() {
     completed: tasks.filter((task) => task.completed).length,
     total: tasks.length,
   };
-  const taskCompletionPercent = taskStats.total ? Math.round((taskStats.completed / taskStats.total) * 100) : 0;
-  const pendingTasks = taskStats.total - taskStats.completed;
 
   const groupedSessionDays = useMemo(() => {
     const totals = {};
@@ -896,14 +1345,7 @@ export default function App() {
 
   const heatmapDays = useMemo(() => getLastNDays(dailyMinutes, 84), [dailyMinutes]);
   const heatmapColumns = useMemo(() => getWeeklyHeatmapColumns(heatmapDays), [heatmapDays]);
-  const activeHeatmapTheme = HEATMAP_THEMES[heatmapTheme] || HEATMAP_THEMES.mint;
-  const heatmapStyle = {
-    "--heat-0": activeHeatmapTheme.scale[0],
-    "--heat-1": activeHeatmapTheme.scale[1],
-    "--heat-2": activeHeatmapTheme.scale[2],
-    "--heat-3": activeHeatmapTheme.scale[3],
-    "--heat-4": activeHeatmapTheme.scale[4],
-  };
+
 
   const catMood = useMemo(() => {
     if (isCelebrating) {
@@ -1276,33 +1718,6 @@ export default function App() {
                 </div>
               )}
             </div>
-
-            <div className="task-insights-grid">
-              <div className="task-insight-card interactive-card task-progress-card">
-                <div className="task-progress-head">
-                  <span className="mini-panel-label">Daily completion</span>
-                  <strong>{taskCompletionPercent}%</strong>
-                </div>
-                <div className="progress-track compact-track">
-                  <div className="progress-fill xp-fill" style={{ width: `${taskCompletionPercent}%` }} />
-                </div>
-                <small>
-                  {taskStats.total
-                    ? `${taskStats.completed} finished · ${pendingTasks} left for today`
-                    : "Start with one clear task and build momentum."}
-                </small>
-              </div>
-
-              <div className="task-insight-card interactive-card">
-                <span className="mini-panel-label">Next move</span>
-                <strong>{pendingTasks > 0 ? "Pick one task and start a focus session" : "Your task list is cleared"}</strong>
-                <small>
-                  {pendingTasks > 0
-                    ? `A ${studyMinutes}-minute sprint is enough to move the next item forward.`
-                    : "You can add another task or use the time for review and revision."}
-                </small>
-              </div>
-            </div>
           </section>
 
           <section className="glass panel sounds-panel interactive-panel">
@@ -1389,63 +1804,172 @@ export default function App() {
             </div>
           </div>
 
-          <div className="analytics-chart-card interactive-card" style={heatmapStyle}>
+          <div className="analytics-chart-card interactive-card">
             <div className="weekly-progress-head">
               <span>Focus heatmap</span>
               <strong>Last 12 weeks</strong>
             </div>
 
-            <div className="heatmap-wrap">
-              <div className="heatmap-weekdays">
-                <span>Mon</span>
-                <span>Wed</span>
-                <span>Fri</span>
-              </div>
+            <div className="heatmap-layout">
+              <div>
+                <div className="heatmap-wrap">
+                  <div className="heatmap-weekdays">
+                    <span>Mon</span>
+                    <span>Wed</span>
+                    <span>Fri</span>
+                  </div>
 
-              <div className="heatmap-grid">
-                {heatmapColumns.map((column, columnIndex) => (
-                  <div key={columnIndex} className="heatmap-column">
-                    {column.map((day) => (
-                      <div
-                        key={day.key}
-                        className={`heatmap-cell intensity-${day.intensity} ${day.isToday ? "today" : ""}`}
-                        title={`${day.label} · ${day.value} focus minutes`}
-                      />
+                  <div className="heatmap-grid">
+                    {heatmapColumns.map((column, columnIndex) => (
+                      <div key={columnIndex} className="heatmap-column">
+                        {column.map((day) => (
+                          <div
+                            key={day.key}
+                            className={`heatmap-cell ${day.isToday ? "today" : ""}`}
+                            style={getHeatmapCellStyle(heatmapPalette, day.intensity)}
+                            title={`${day.label} · ${day.value} focus minutes`}
+                          />
+                        ))}
+                      </div>
                     ))}
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="heatmap-bottom-row">
-              <div className="heatmap-legend">
-                <span>Less</span>
-                <div className="legend-scale">
-                  {[0, 1, 2, 3, 4].map((level) => (
-                    <span key={level} className={`heatmap-cell intensity-${level}`} />
-                  ))}
                 </div>
-                <span>More</span>
-              </div>
 
-              <div className="heatmap-theme-picker">
-                <span>Square colors</span>
-                <div className="heatmap-theme-options">
-                  {Object.entries(HEATMAP_THEMES).map(([key, theme]) => (
-                    <button
-                      key={key}
-                      className={`heatmap-theme-btn ${heatmapTheme === key ? "active" : ""}`}
-                      onClick={() => setHeatmapTheme(key)}
-                      aria-label={`Use ${theme.label} heatmap colors`}
-                      title={theme.label}
-                    >
-                      {theme.scale.slice(1).map((color, index) => (
-                        <span key={index} style={{ background: color }} />
+                <div className="heatmap-footer-row">
+                  <div className="heatmap-legend">
+                    <span>Less</span>
+                    <div className="legend-scale">
+                      {[0, 1, 2, 3, 4].map((level) => (
+                        <span key={level} className="heatmap-cell" style={getHeatmapCellStyle(heatmapPalette, level)} />
                       ))}
-                    </button>
-                  ))}
+                    </div>
+                    <span>More</span>
+                  </div>
+
+                  <div className="palette-row">
+                    <span className="palette-label">Square colors</span>
+                    {Object.keys(HEATMAP_PALETTES).map((palette) => (
+                      <button
+                        key={palette}
+                        className={`palette-chip ${heatmapPalette === palette ? "active" : ""}`}
+                        onClick={() => setHeatmapPalette(palette)}
+                        aria-label={`${palette} heatmap palette`}
+                        type="button"
+                      >
+                        {HEATMAP_PALETTES[palette].slice(1).map((color, index) => (
+                          <span key={`${palette}-${index}`} className="palette-dot" style={{ background: color }} />
+                        ))}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
+
+              <aside className="spotify-card interactive-card">
+                <div className="spotify-card-head">
+                  <div>
+                    <span className="mini-panel-label">Spotify</span>
+                    <strong>{spotifyProfile?.display_name || "Connect your premium account"}</strong>
+                  </div>
+                  <span className={`spotify-status ${spotifyReady ? "ready" : "idle"}`}>
+                    {spotifyAccessToken ? (spotifyReady ? "Player ready" : "Connecting") : "Disconnected"}
+                  </span>
+                </div>
+
+                {!spotifyAccessToken ? (
+                  <div className="spotify-empty-state">
+                    <p>
+                      Link Spotify to fill this space with your playlists, now playing, and playback controls.
+                    </p>
+                    <button className="main-btn primary" onClick={connectSpotify} disabled={spotifyBusy || !spotifyClientId}>
+                      {spotifyBusy ? "Redirecting..." : spotifyClientId ? "Connect Spotify" : "Add Spotify client ID"}
+                    </button>
+                    <small>
+                      Client ID missing? Add <code>VITE_SPOTIFY_CLIENT_ID</code> and <code>VITE_SPOTIFY_REDIRECT_URI</code> in your env.
+                    </small>
+                  </div>
+                ) : (
+                  <>
+                    <div className="spotify-track-card">
+                      {spotifyCurrentTrack?.image ? (
+                        <img src={spotifyCurrentTrack.image} alt={spotifyCurrentTrack.album || spotifyCurrentTrack.name} className="spotify-art" />
+                      ) : (
+                        <div className="spotify-art spotify-art-placeholder">♫</div>
+                      )}
+
+                      <div className="spotify-track-copy">
+                        <span className="mini-panel-label">Now playing</span>
+                        <strong>{spotifyCurrentTrack?.name || "Nothing playing yet"}</strong>
+                        <small>{spotifyCurrentTrack?.artists || "Pick a playlist below to start a focus mix."}</small>
+                      </div>
+                    </div>
+
+                    <div className="spotify-playlist-card">
+                      <label className="mini-panel-label" htmlFor="spotifyPlaylistSelect">Focus playlist</label>
+                      <select
+                        id="spotifyPlaylistSelect"
+                        className="spotify-select"
+                        value={spotifySelectedPlaylistId}
+                        onChange={(e) => setSpotifySelectedPlaylistId(e.target.value)}
+                      >
+                        {spotifyPlaylists.length ? (
+                          spotifyPlaylists.map((playlist) => (
+                            <option key={playlist.id} value={playlist.id}>{playlist.name}</option>
+                          ))
+                        ) : (
+                          <option value="">No playlists found</option>
+                        )}
+                      </select>
+                    </div>
+
+                    <div className="spotify-controls">
+                      <button className="spotify-control-btn" onClick={() => skipSpotify("previous")} type="button">⏮</button>
+                      <button
+                        className="spotify-control-btn spotify-control-btn-main"
+                        onClick={() => (spotifyPlayerPaused ? resumeSpotify() : pauseSpotify())}
+                        type="button"
+                      >
+                        {spotifyPlayerPaused ? "▶" : "⏸"}
+                      </button>
+                      <button className="spotify-control-btn" onClick={() => skipSpotify("next")} type="button">⏭</button>
+                    </div>
+
+                    <div className="spotify-actions-row">
+                      <button className="main-btn secondary" onClick={startSpotifyPlaylist} type="button" disabled={!spotifySelectedPlaylist || spotifyBusy}>
+                        {spotifyBusy ? "Starting..." : "Play selected playlist"}
+                      </button>
+                      <button className="main-btn ghost" onClick={fetchSpotifyPlayback} type="button">
+                        Sync now
+                      </button>
+                    </div>
+
+                    <div className="sound-controls-card spotify-volume-card interactive-card">
+                      <div className="setting-head">
+                        <label>Spotify volume</label>
+                        <span>{spotifyVolume}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={spotifyVolume}
+                        onChange={(e) => setSpotifyVolume(Number(e.target.value))}
+                      />
+                    </div>
+
+                    <div className="spotify-footer-links">
+                      {spotifySelectedPlaylist?.external_urls?.spotify ? (
+                        <a href={spotifySelectedPlaylist.external_urls.spotify} target="_blank" rel="noreferrer" className="spotify-link">
+                          Open playlist in Spotify
+                        </a>
+                      ) : null}
+                      <button className="text-btn" onClick={disconnectSpotify} type="button">Disconnect</button>
+                    </div>
+                  </>
+                )}
+
+                {spotifyError ? <div className="spotify-error">{spotifyError}</div> : null}
+              </aside>
             </div>
           </div>
 
@@ -1635,29 +2159,6 @@ export default function App() {
                   ? `Your dashboard is in focus mode while this ${mode} session runs.`
                   : "Hit start when you want the interface to shift into a focused session state."}
               </p>
-            </div>
-
-            <div className="overview-extra-grid">
-              <div className="overview-note-card interactive-card">
-                <span className="mini-panel-label">Today at a glance</span>
-                <strong>{pendingTasks > 0 ? `${pendingTasks} task${pendingTasks > 1 ? "s" : ""} waiting` : "Task board cleared"}</strong>
-                <small>
-                  {sessionsToday > 0
-                    ? `${sessionsToday} focus session${sessionsToday > 1 ? "s" : ""} completed today.`
-                    : "No completed focus sessions yet today."}
-                </small>
-              </div>
-
-              <div className="overview-mini-grid">
-                <div className="overview-mini-card interactive-card">
-                  <span className="mini-panel-label">Today&apos;s minutes</span>
-                  <strong>{completedTodayMinutes} min</strong>
-                </div>
-                <div className="overview-mini-card interactive-card">
-                  <span className="mini-panel-label">Task progress</span>
-                  <strong>{taskCompletionPercent}%</strong>
-                </div>
-              </div>
             </div>
           </section>
         </div>
