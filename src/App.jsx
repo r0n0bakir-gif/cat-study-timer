@@ -242,6 +242,25 @@ const BREAK_SUGGESTIONS = [
   "Take 5 slow breaths",
 ];
 
+const HEATMAP_THEMES = {
+  mint: {
+    label: "Mint",
+    scale: ["rgba(255,255,255,0.08)", "rgba(126, 227, 176, 0.24)", "rgba(126, 227, 176, 0.42)", "rgba(106, 180, 255, 0.58)", "rgba(106, 180, 255, 0.92)"],
+  },
+  sunset: {
+    label: "Sunset",
+    scale: ["rgba(255,255,255,0.08)", "rgba(255, 176, 122, 0.24)", "rgba(255, 147, 117, 0.42)", "rgba(255, 110, 118, 0.6)", "rgba(255, 88, 109, 0.92)"],
+  },
+  lavender: {
+    label: "Lavender",
+    scale: ["rgba(255,255,255,0.08)", "rgba(193, 174, 255, 0.24)", "rgba(171, 151, 255, 0.42)", "rgba(140, 127, 255, 0.62)", "rgba(116, 102, 255, 0.94)"],
+  },
+  gold: {
+    label: "Gold",
+    scale: ["rgba(255,255,255,0.08)", "rgba(247, 215, 110, 0.22)", "rgba(244, 192, 94, 0.4)", "rgba(241, 166, 74, 0.58)", "rgba(238, 141, 56, 0.94)"],
+  },
+};
+
 const STORAGE_KEY = "cat-study-pro-dashboard";
 const XP_PER_SESSION = 10;
 const XP_PER_LEVEL = 50;
@@ -327,6 +346,7 @@ const getInitialData = () => {
     sessionHistory: [],
     selectedSound: "none",
     soundVolume: 55,
+    heatmapTheme: "mint",
   };
 
   try {
@@ -419,6 +439,7 @@ export default function App() {
   const [sessionHistory, setSessionHistory] = useState(initial.sessionHistory);
   const [selectedSound, setSelectedSound] = useState(initial.selectedSound);
   const [soundVolume, setSoundVolume] = useState(initial.soundVolume);
+  const [heatmapTheme, setHeatmapTheme] = useState(initial.heatmapTheme || "mint");
 
   const ambientAudioRef = useRef(null);
 
@@ -463,6 +484,7 @@ export default function App() {
         sessionHistory,
         selectedSound,
         soundVolume,
+        heatmapTheme,
       })
     );
   }, [
@@ -487,6 +509,7 @@ export default function App() {
     sessionHistory,
     selectedSound,
     soundVolume,
+    heatmapTheme,
   ]);
 
   useEffect(() => {
@@ -832,6 +855,8 @@ export default function App() {
     completed: tasks.filter((task) => task.completed).length,
     total: tasks.length,
   };
+  const taskCompletionPercent = taskStats.total ? Math.round((taskStats.completed / taskStats.total) * 100) : 0;
+  const pendingTasks = taskStats.total - taskStats.completed;
 
   const groupedSessionDays = useMemo(() => {
     const totals = {};
@@ -871,7 +896,14 @@ export default function App() {
 
   const heatmapDays = useMemo(() => getLastNDays(dailyMinutes, 84), [dailyMinutes]);
   const heatmapColumns = useMemo(() => getWeeklyHeatmapColumns(heatmapDays), [heatmapDays]);
-
+  const activeHeatmapTheme = HEATMAP_THEMES[heatmapTheme] || HEATMAP_THEMES.mint;
+  const heatmapStyle = {
+    "--heat-0": activeHeatmapTheme.scale[0],
+    "--heat-1": activeHeatmapTheme.scale[1],
+    "--heat-2": activeHeatmapTheme.scale[2],
+    "--heat-3": activeHeatmapTheme.scale[3],
+    "--heat-4": activeHeatmapTheme.scale[4],
+  };
 
   const catMood = useMemo(() => {
     if (isCelebrating) {
@@ -1244,6 +1276,33 @@ export default function App() {
                 </div>
               )}
             </div>
+
+            <div className="task-insights-grid">
+              <div className="task-insight-card interactive-card task-progress-card">
+                <div className="task-progress-head">
+                  <span className="mini-panel-label">Daily completion</span>
+                  <strong>{taskCompletionPercent}%</strong>
+                </div>
+                <div className="progress-track compact-track">
+                  <div className="progress-fill xp-fill" style={{ width: `${taskCompletionPercent}%` }} />
+                </div>
+                <small>
+                  {taskStats.total
+                    ? `${taskStats.completed} finished · ${pendingTasks} left for today`
+                    : "Start with one clear task and build momentum."}
+                </small>
+              </div>
+
+              <div className="task-insight-card interactive-card">
+                <span className="mini-panel-label">Next move</span>
+                <strong>{pendingTasks > 0 ? "Pick one task and start a focus session" : "Your task list is cleared"}</strong>
+                <small>
+                  {pendingTasks > 0
+                    ? `A ${studyMinutes}-minute sprint is enough to move the next item forward.`
+                    : "You can add another task or use the time for review and revision."}
+                </small>
+              </div>
+            </div>
           </section>
 
           <section className="glass panel sounds-panel interactive-panel">
@@ -1330,7 +1389,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="analytics-chart-card interactive-card">
+          <div className="analytics-chart-card interactive-card" style={heatmapStyle}>
             <div className="weekly-progress-head">
               <span>Focus heatmap</span>
               <strong>Last 12 weeks</strong>
@@ -1358,14 +1417,35 @@ export default function App() {
               </div>
             </div>
 
-            <div className="heatmap-legend">
-              <span>Less</span>
-              <div className="legend-scale">
-                {[0, 1, 2, 3, 4].map((level) => (
-                  <span key={level} className={`heatmap-cell intensity-${level}`} />
-                ))}
+            <div className="heatmap-bottom-row">
+              <div className="heatmap-legend">
+                <span>Less</span>
+                <div className="legend-scale">
+                  {[0, 1, 2, 3, 4].map((level) => (
+                    <span key={level} className={`heatmap-cell intensity-${level}`} />
+                  ))}
+                </div>
+                <span>More</span>
               </div>
-              <span>More</span>
+
+              <div className="heatmap-theme-picker">
+                <span>Square colors</span>
+                <div className="heatmap-theme-options">
+                  {Object.entries(HEATMAP_THEMES).map(([key, theme]) => (
+                    <button
+                      key={key}
+                      className={`heatmap-theme-btn ${heatmapTheme === key ? "active" : ""}`}
+                      onClick={() => setHeatmapTheme(key)}
+                      aria-label={`Use ${theme.label} heatmap colors`}
+                      title={theme.label}
+                    >
+                      {theme.scale.slice(1).map((color, index) => (
+                        <span key={index} style={{ background: color }} />
+                      ))}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1555,6 +1635,29 @@ export default function App() {
                   ? `Your dashboard is in focus mode while this ${mode} session runs.`
                   : "Hit start when you want the interface to shift into a focused session state."}
               </p>
+            </div>
+
+            <div className="overview-extra-grid">
+              <div className="overview-note-card interactive-card">
+                <span className="mini-panel-label">Today at a glance</span>
+                <strong>{pendingTasks > 0 ? `${pendingTasks} task${pendingTasks > 1 ? "s" : ""} waiting` : "Task board cleared"}</strong>
+                <small>
+                  {sessionsToday > 0
+                    ? `${sessionsToday} focus session${sessionsToday > 1 ? "s" : ""} completed today.`
+                    : "No completed focus sessions yet today."}
+                </small>
+              </div>
+
+              <div className="overview-mini-grid">
+                <div className="overview-mini-card interactive-card">
+                  <span className="mini-panel-label">Today&apos;s minutes</span>
+                  <strong>{completedTodayMinutes} min</strong>
+                </div>
+                <div className="overview-mini-card interactive-card">
+                  <span className="mini-panel-label">Task progress</span>
+                  <strong>{taskCompletionPercent}%</strong>
+                </div>
+              </div>
             </div>
           </section>
         </div>
