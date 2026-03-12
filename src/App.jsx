@@ -423,7 +423,7 @@ const getHeatmapCellStyle = (paletteKey, intensity) => ({
   background: (HEATMAP_PALETTES[paletteKey] || HEATMAP_PALETTES.mint)[intensity] || HEATMAP_PALETTES.mint[0],
 });
 
-const getSpotifyRedirectUri = () => `${window.location.origin}/callback`;
+
 
 const randomSpotifyString = (length = 64) => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -647,7 +647,7 @@ export default function App() {
   }, [spotifyAccessToken]);
 
   const spotifyClientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
-  const spotifyRedirectUri = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || getSpotifyRedirectUri();
+const spotifyRedirectUri = "https://cat-study-timer.vercel.app/callback";
 
   const spotifyApi = async (endpoint, options = {}) => {
     if (!spotifyTokenRef.current) return null;
