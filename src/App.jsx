@@ -863,10 +863,28 @@ export default function App() {
     progressPercent: Math.min(100, (quest.current / quest.target) * 100),
   }));
 
-  const taskStats = {
+    const taskStats = {
     completed: tasks.filter((task) => task.completed).length,
     total: tasks.length,
   };
+
+  const topPriorityTask =
+    tasks.find((task) => !task.completed)?.text || "No task selected yet";
+
+  const sessionsPlannedToday = Math.max(3, Math.ceil(studyMinutes >= 30 ? 90 / studyMinutes : 60 / studyMinutes));
+  const plannedFocusMinutes = sessionsPlannedToday * studyMinutes;
+  const planCompletion = Math.min(
+    100,
+    plannedFocusMinutes ? (completedTodayMinutes / plannedFocusMinutes) * 100 : 0
+  );
+
+  const productivityInsight = sessionHistory.length
+    ? productivityStats.mostProductiveDay
+      ? `Your strongest day so far is ${formatDisplayDate(
+          productivityStats.mostProductiveDay.date
+        )}.`
+      : "Your focus data will get smarter as you complete more sessions."
+    : "Finish your first focus session to unlock more meaningful insights.";
 
   const groupedSessionDays = useMemo(() => {
     const totals = {};
@@ -967,12 +985,12 @@ export default function App() {
 
       <div className="dashboard-shell">
         <div className="topbar">
-          <div>
-            <span className="eyebrow">Cat Productivity Suite</span>
+                    <div>
+            <span className="eyebrow">Gamified focus timer</span>
             <h1>Cat Study Timer</h1>
             <p className="subtitle">
-              A cozy focus dashboard with streaks, evolving cats, daily quests,
-              achievements, tasks, analytics, session history, and focus sounds.
+              A study timer for students who want clearer focus, visible progress,
+              and a more motivating daily routine.
             </p>
           </div>
 
@@ -1060,6 +1078,47 @@ export default function App() {
               <button className="main-btn ghost" onClick={resetTimer}>
                 Reset
               </button>
+            </div>
+                        <div className="today-plan-card interactive-card">
+              <div className="today-plan-head">
+                <div>
+                  <p className="section-label">Today plan</p>
+                  <h3>What matters today</h3>
+                </div>
+                <div className="level-chip">{Math.round(planCompletion)}% on track</div>
+              </div>
+
+              <div className="today-plan-grid">
+                <div className="mini-panel interactive-card">
+                  <span className="mini-panel-label">Top task</span>
+                  <strong>{topPriorityTask}</strong>
+                </div>
+
+                <div className="mini-panel interactive-card">
+                  <span className="mini-panel-label">Planned focus</span>
+                  <strong>{plannedFocusMinutes} min</strong>
+                </div>
+
+                <div className="mini-panel interactive-card">
+                  <span className="mini-panel-label">Completed today</span>
+                  <strong>{completedTodayMinutes} min</strong>
+                </div>
+
+                <div className="mini-panel interactive-card">
+                  <span className="mini-panel-label">Planned sessions</span>
+                  <strong>{sessionsPlannedToday}</strong>
+                </div>
+              </div>
+
+              <div className="progress-track">
+                <div className="progress-fill" style={{ width: `${planCompletion}%` }} />
+              </div>
+
+              <p className="today-plan-note">
+                {running
+                  ? `You are currently in a ${mode === "study" ? "focus" : "break"} cycle. Stay with one priority.`
+                  : "Pick one task and start a short focus block. Consistency matters more than intensity."}
+              </p>
             </div>
 
             {mode === "break" ? (
@@ -1193,30 +1252,30 @@ export default function App() {
         <div className="stats-grid">
           <div className="glass stat-card stat-card-primary interactive-panel">
             <span className="stat-icon">🔥</span>
-            <span className="stat-label">Current streak</span>
+            <span className="stat-label">Consistency streak</span>
             <strong className="stat-value">{currentStreak}</strong>
-            <span className="stat-sub">Keep the chain alive tomorrow.</span>
+            <span className="stat-sub">Days in a row with completed focus work.</span>
           </div>
 
           <div className="glass stat-card interactive-panel">
             <span className="stat-icon">🎯</span>
-            <span className="stat-label">Sessions today</span>
+            <span className="stat-label">Sessions completed today</span>
             <strong className="stat-value">{sessionsToday}</strong>
-            <span className="stat-sub">Focus rounds completed today.</span>
+            <span className="stat-sub">Short sprints finished and counted.</span>
           </div>
 
           <div className="glass stat-card interactive-panel">
             <span className="stat-icon">⏱️</span>
-            <span className="stat-label">Focus hours</span>
+            <span className="stat-label">Total focused hours</span>
             <strong className="stat-value">{totalStudyHours}h</strong>
-            <span className="stat-sub">Total deep work time saved.</span>
+            <span className="stat-sub">Real study time accumulated over time.</span>
           </div>
 
           <div className="glass stat-card interactive-panel">
             <span className="stat-icon">🏆</span>
-            <span className="stat-label">Best streak</span>
+            <span className="stat-label">Best streak reached</span>
             <strong className="stat-value">{longestStreak}</strong>
-            <span className="stat-sub">Your all-time streak record.</span>
+            <span className="stat-sub">Your strongest consistency record so far.</span>
           </div>
         </div>
 
@@ -1224,8 +1283,8 @@ export default function App() {
           <section className="glass panel tasks-panel interactive-panel">
             <div className="panel-top">
               <div>
-                <p className="section-label">Today’s tasks</p>
-                <h2>Task list</h2>
+                                <p className="section-label">Today’s plan</p>
+                <h2>Priority tasks</h2>
               </div>
               <div className="level-chip">
                 {taskStats.completed}/{taskStats.total || 0} done
@@ -1282,8 +1341,8 @@ export default function App() {
           <section className="glass panel sounds-panel interactive-panel">
             <div className="panel-top">
               <div>
-                <p className="section-label">Focus sounds</p>
-                <h2>Ambient player</h2>
+                                <p className="section-label">Focus environment</p>
+                <h2>Ambient sounds</h2>
               </div>
               <div className="level-chip">{selectedSound === "none" ? "Silent" : selectedSound}</div>
             </div>
@@ -1324,8 +1383,8 @@ export default function App() {
               <button className="main-btn ghost" onClick={() => handleSelectSound("none")}>
                 Stop sound
               </button>
-              <p className="helper-text">
-                Put rain.mp3, forest.mp3, fire.mp3, cafe.mp3, and lofi.mp3 inside <code>public/sounds</code>.
+                            <p className="helper-text">
+                Add rain.mp3, forest.mp3, fire.mp3, cafe.mp3, and lofi.mp3 to <code>public/sounds</code> to enable local ambient audio.
               </p>
             </div>
           </section>
@@ -1573,9 +1632,9 @@ export default function App() {
             </div>
           </section>
 
-          <section className="glass panel summary-panel interactive-panel">
+                    <section className="glass panel summary-panel interactive-panel">
             <p className="section-label">Overview</p>
-            <h2>Productivity snapshot</h2>
+            <h2>Weekly snapshot</h2>
 
             <div className="summary-list">
               <div className="summary-row interactive-card">
@@ -1583,35 +1642,31 @@ export default function App() {
                 <strong>{studySessions}</strong>
               </div>
               <div className="summary-row interactive-card">
-                <span>Mode</span>
-                <strong>{mode === "study" ? "Focus" : "Break"}</strong>
+                <span>Average focus block</span>
+                <strong>{productivityStats.averageSessionLength} min</strong>
               </div>
               <div className="summary-row interactive-card">
-                <span>Achievements</span>
+                <span>Achievements unlocked</span>
                 <strong>{achievements.filter((item) => item.done).length}/4</strong>
               </div>
               <div className="summary-row interactive-card">
-                <span>Theme</span>
-                <strong>{darkMode ? "Dark" : "Light"}</strong>
+                <span>Current mode</span>
+                <strong>{mode === "study" ? "Focus" : "Break"}</strong>
               </div>
               <div className="summary-row interactive-card">
-                <span>Ambient</span>
+                <span>Ambient sound</span>
                 <strong>{selectedSound === "none" ? "Silent" : selectedSound}</strong>
               </div>
               <div className="summary-row interactive-card">
-                <span>Last unlock</span>
-                <strong>{lastUnlockedCat?.name || currentEvolution.name}</strong>
+                <span>Current companion</span>
+                <strong>{currentEvolution.name}</strong>
               </div>
             </div>
 
             <div className="focus-state-card interactive-card">
-              <span className="focus-state-label">Focus state</span>
-              <strong>{running ? "Deep work mode active" : "Ready to begin"}</strong>
-              <p>
-                {running
-                  ? `Your dashboard is in focus mode while this ${mode} session runs.`
-                  : "Hit start when you want the interface to shift into a focused session state."}
-              </p>
+              <span className="focus-state-label">Insight</span>
+              <strong>{running ? "Focus block active" : "Ready for your next block"}</strong>
+              <p>{productivityInsight}</p>
             </div>
           </section>
         </div>
