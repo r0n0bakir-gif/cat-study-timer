@@ -255,17 +255,6 @@ const HEATMAP_PALETTES = {
   amber: ["rgba(255,255,255,0.08)", "rgba(245, 205, 108, 0.16)", "rgba(237, 173, 88, 0.34)", "rgba(229, 145, 60, 0.58)", "rgba(224, 133, 43, 0.9)"],
 };
 
-const SPOTIFY_SCOPES = [
-  "streaming",
-  "user-read-email",
-  "user-read-private",
-  "user-read-playback-state",
-  "user-read-currently-playing",
-  "user-modify-playback-state",
-  "playlist-read-private",
-  "playlist-read-collaborative",
-];
-
 const todayString = () => new Date().toISOString().slice(0, 10);
 
 const getYesterdayString = () => {
@@ -346,12 +335,6 @@ const getInitialData = () => {
     selectedSound: "none",
     soundVolume: 55,
     heatmapPalette: "mint",
-    spotifyAccessToken: "",
-    spotifyRefreshToken: "",
-    spotifyTokenExpiresAt: 0,
-    spotifyProfile: null,
-    spotifySelectedPlaylistId: "",
-    spotifyVolume: 65,
   };
 
   try {
@@ -377,7 +360,6 @@ const getLast7Days = (dailySessions) => {
     };
   });
 };
-
 
 const formatDisplayDate = (dateString) =>
   new Date(`${dateString}T00:00:00`).toLocaleDateString("en-US", {
@@ -422,8 +404,6 @@ const getWeeklyHeatmapColumns = (days) => {
 const getHeatmapCellStyle = (paletteKey, intensity) => ({
   background: (HEATMAP_PALETTES[paletteKey] || HEATMAP_PALETTES.mint)[intensity] || HEATMAP_PALETTES.mint[0],
 });
-
-
 
 const randomSpotifyString = (length = 64) => {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -472,24 +452,8 @@ export default function App() {
   const [selectedSound, setSelectedSound] = useState(initial.selectedSound);
   const [soundVolume, setSoundVolume] = useState(initial.soundVolume);
   const [heatmapPalette, setHeatmapPalette] = useState(initial.heatmapPalette);
-  const [spotifyAccessToken, setSpotifyAccessToken] = useState(initial.spotifyAccessToken);
-  const [spotifyRefreshToken, setSpotifyRefreshToken] = useState(initial.spotifyRefreshToken);
-  const [spotifyTokenExpiresAt, setSpotifyTokenExpiresAt] = useState(initial.spotifyTokenExpiresAt);
-  const [spotifyProfile, setSpotifyProfile] = useState(initial.spotifyProfile);
-  const [spotifySelectedPlaylistId, setSpotifySelectedPlaylistId] = useState(initial.spotifySelectedPlaylistId);
-  const [spotifyVolume, setSpotifyVolume] = useState(initial.spotifyVolume);
-  const [spotifyPlaylists, setSpotifyPlaylists] = useState([]);
-  const [spotifyCurrentTrack, setSpotifyCurrentTrack] = useState(null);
-  const [spotifyPlayerPaused, setSpotifyPlayerPaused] = useState(true);
-  const [spotifyDeviceId, setSpotifyDeviceId] = useState("");
-  const [spotifyReady, setSpotifyReady] = useState(false);
-  const [spotifyBusy, setSpotifyBusy] = useState(false);
-  const [spotifyError, setSpotifyError] = useState("");
 
   const ambientAudioRef = useRef(null);
-  const spotifyPlayerRef = useRef(null);
-  const spotifyTokenRef = useRef(initial.spotifyAccessToken);
-  const spotifySdkInitRef = useRef(false);
 
   const [mode, setMode] = useState("study");
   const [timeLeft, setTimeLeft] = useState(initial.studyMinutes * 60);
@@ -533,12 +497,6 @@ export default function App() {
         selectedSound,
         soundVolume,
         heatmapPalette,
-        spotifyAccessToken,
-        spotifyRefreshToken,
-        spotifyTokenExpiresAt,
-        spotifyProfile,
-        spotifySelectedPlaylistId,
-        spotifyVolume,
       })
     );
   }, [
@@ -564,12 +522,6 @@ export default function App() {
     selectedSound,
     soundVolume,
     heatmapPalette,
-    spotifyAccessToken,
-    spotifyRefreshToken,
-    spotifyTokenExpiresAt,
-    spotifyProfile,
-    spotifySelectedPlaylistId,
-    spotifyVolume,
   ]);
 
   useEffect(() => {
@@ -641,396 +593,6 @@ export default function App() {
       stopAmbientSound();
     };
   }, []);
-
-  useEffect(() => {
-    spotifyTokenRef.current = spotifyAccessToken;
-  }, [spotifyAccessToken]);
-
-  const spotifyClientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
-const spotifyRedirectUri = "https://cat-study-timer.vercel.app";
-  const spotifyApi = async (endpoint, options = {}) => {
-    if (!spotifyTokenRef.current) return null;
-
-    const response = await fetch(`https://api.spotify.com/v1${endpoint}`, {
-      ...options,
-      headers: {
-        Authorization: `Bearer ${spotifyTokenRef.current}`,
-        ...(options.headers || {}),
-      },
-    });
-
-    if (response.status === 204) return null;
-
-    if (response.status === 401) {
-      throw new Error("Spotify session expired. Connect again.");
-    }
-
-    if (!response.ok) {
-      let message = "Spotify request failed.";
-      try {
-        const payload = await response.json();
-        message = payload?.error?.message || payload?.error_description || message;
-      } catch {
-        // ignore parse errors
-      }
-      throw new Error(message);
-    }
-
-    return response.json();
-  };
-
-  const fetchSpotifyPlayback = async () => {
-    if (!spotifyTokenRef.current) return;
-
-    try {
-      const playback = await spotifyApi("/me/player");
-      const item = playback?.item;
-
-      if (!item) return;
-
-      setSpotifyPlayerPaused(Boolean(playback?.is_playing === false));
-      setSpotifyCurrentTrack({
-        id: item.id,
-        name: item.name,
-        artists: item.artists?.map((artist) => artist.name).join(", "),
-        album: item.album?.name,
-        image: item.album?.images?.[0]?.url || "",
-        url: item.external_urls?.spotify || "",
-      });
-    } catch (error) {
-      setSpotifyError(error.message);
-    }
-  };
-
-  const fetchSpotifyCatalog = async () => {
-    if (!spotifyTokenRef.current) return;
-
-    try {
-      const [profile, playlists] = await Promise.all([
-        spotifyApi("/me"),
-        spotifyApi("/me/playlists?limit=12"),
-      ]);
-
-      setSpotifyProfile(profile || null);
-      setSpotifyPlaylists(playlists?.items || []);
-
-      if (!spotifySelectedPlaylistId && playlists?.items?.length) {
-        setSpotifySelectedPlaylistId(playlists.items[0].id);
-      }
-    } catch (error) {
-      setSpotifyError(error.message);
-    }
-  };
-
-  const refreshSpotifyToken = async () => {
-    if (!spotifyRefreshToken || !spotifyClientId) return;
-
-    try {
-      const body = new URLSearchParams({
-        client_id: spotifyClientId,
-        grant_type: "refresh_token",
-        refresh_token: spotifyRefreshToken,
-      });
-
-      const response = await fetch("https://accounts.spotify.com/api/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
-      });
-
-      if (!response.ok) {
-        throw new Error("Could not refresh Spotify access.");
-      }
-
-      const payload = await response.json();
-      setSpotifyAccessToken(payload.access_token || "");
-      setSpotifyTokenExpiresAt(Date.now() + (payload.expires_in || 3600) * 1000);
-      if (payload.refresh_token) {
-        setSpotifyRefreshToken(payload.refresh_token);
-      }
-    } catch (error) {
-      setSpotifyError(error.message);
-    }
-  };
-
-  const disconnectSpotify = () => {
-    setSpotifyAccessToken("");
-    setSpotifyRefreshToken("");
-    setSpotifyTokenExpiresAt(0);
-    setSpotifyProfile(null);
-    setSpotifyPlaylists([]);
-    setSpotifyCurrentTrack(null);
-    setSpotifySelectedPlaylistId("");
-    setSpotifyDeviceId("");
-    setSpotifyReady(false);
-    setSpotifyPlayerPaused(true);
-    setSpotifyError("");
-    if (spotifyPlayerRef.current) {
-      spotifyPlayerRef.current.disconnect();
-      spotifyPlayerRef.current = null;
-      spotifySdkInitRef.current = false;
-    }
-  };
-
-  const connectSpotify = async () => {
-    if (!spotifyClientId) {
-      setSpotifyError("Add VITE_SPOTIFY_CLIENT_ID to your .env file first.");
-      return;
-    }
-
-    try {
-      setSpotifyBusy(true);
-      setSpotifyError("");
-      const { verifier, challenge } = await createSpotifyAuthChallenge();
-      const state = randomSpotifyString(24);
-
-      sessionStorage.setItem("spotify_code_verifier", verifier);
-      sessionStorage.setItem("spotify_auth_state", state);
-
-      const params = new URLSearchParams({
-        client_id: spotifyClientId,
-        response_type: "code",
-        redirect_uri: spotifyRedirectUri,
-        code_challenge_method: "S256",
-        code_challenge: challenge,
-        state,
-        scope: SPOTIFY_SCOPES.join(" "),
-      });
-
-      window.location.href = `https://accounts.spotify.com/authorize?${params.toString()}`;
-    } catch (error) {
-      setSpotifyBusy(false);
-      setSpotifyError(error.message);
-    }
-  };
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-    const state = params.get("state");
-    const error = params.get("error");
-
-    if (error) {
-      setSpotifyError(`Spotify login was cancelled: ${error}`);
-      window.history.replaceState({}, document.title, window.location.pathname);
-      return;
-    }
-
-    if (!code) return;
-
-    const expectedState = sessionStorage.getItem("spotify_auth_state");
-    const verifier = sessionStorage.getItem("spotify_code_verifier");
-
-    if (!verifier || !expectedState || state !== expectedState) {
-      setSpotifyError("Spotify sign-in could not be verified. Try again.");
-      window.history.replaceState({}, document.title, window.location.pathname);
-      return;
-    }
-
-    const exchange = async () => {
-      try {
-        setSpotifyBusy(true);
-        const body = new URLSearchParams({
-          client_id: spotifyClientId,
-          grant_type: "authorization_code",
-          code,
-          redirect_uri: spotifyRedirectUri,
-          code_verifier: verifier,
-        });
-
-        const response = await fetch("https://accounts.spotify.com/api/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body,
-        });
-
-        if (!response.ok) {
-          throw new Error("Spotify token exchange failed.");
-        }
-
-        const payload = await response.json();
-        setSpotifyAccessToken(payload.access_token || "");
-        setSpotifyRefreshToken(payload.refresh_token || "");
-        setSpotifyTokenExpiresAt(Date.now() + (payload.expires_in || 3600) * 1000);
-        setSpotifyError("");
-        sessionStorage.removeItem("spotify_code_verifier");
-        sessionStorage.removeItem("spotify_auth_state");
-      } catch (exchangeError) {
-        setSpotifyError(exchangeError.message);
-      } finally {
-        setSpotifyBusy(false);
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    };
-
-    exchange();
-  }, []);
-
-  useEffect(() => {
-    if (!spotifyRefreshToken || !spotifyTokenExpiresAt || !spotifyClientId) return;
-
-    const refreshLead = 60 * 1000;
-    const delay = Math.max(5000, spotifyTokenExpiresAt - Date.now() - refreshLead);
-    const timeout = window.setTimeout(() => {
-      refreshSpotifyToken();
-    }, delay);
-
-    return () => window.clearTimeout(timeout);
-  }, [spotifyRefreshToken, spotifyTokenExpiresAt, spotifyClientId]);
-
-  useEffect(() => {
-    if (!spotifyAccessToken) return;
-
-    fetchSpotifyCatalog();
-    fetchSpotifyPlayback();
-
-    const interval = window.setInterval(() => {
-      fetchSpotifyPlayback();
-    }, 15000);
-
-    return () => window.clearInterval(interval);
-  }, [spotifyAccessToken]);
-
-  const transferSpotifyPlayback = async (deviceId, shouldPlay = false) => {
-    if (!deviceId) return;
-
-    try {
-      await spotifyApi("/me/player", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ device_ids: [deviceId], play: shouldPlay }),
-      });
-      setSpotifyReady(true);
-    } catch (error) {
-      setSpotifyError(error.message);
-    }
-  };
-
-  useEffect(() => {
-    if (!spotifyAccessToken || spotifySdkInitRef.current) return;
-
-    const initPlayer = () => {
-      if (!window.Spotify || spotifyPlayerRef.current) return;
-
-      const player = new window.Spotify.Player({
-        name: "Cat Focus Player",
-        getOAuthToken: (callback) => callback(spotifyTokenRef.current),
-        volume: spotifyVolume / 100,
-      });
-
-      player.addListener("ready", ({ device_id }) => {
-        setSpotifyDeviceId(device_id);
-        setSpotifyReady(true);
-        setSpotifyError("");
-        transferSpotifyPlayback(device_id, false);
-      });
-
-      player.addListener("not_ready", () => {
-        setSpotifyReady(false);
-      });
-
-      player.addListener("player_state_changed", (state) => {
-        if (!state) return;
-        const track = state.track_window?.current_track;
-        if (!track) return;
-
-        setSpotifyPlayerPaused(state.paused);
-        setSpotifyCurrentTrack({
-          id: track.id,
-          name: track.name,
-          artists: track.artists?.map((artist) => artist.name).join(", "),
-          album: track.album?.name,
-          image: track.album?.images?.[0]?.url || "",
-          url: track.linked_from?.external_urls?.spotify || track.uri,
-        });
-      });
-
-      ["authentication_error", "account_error", "playback_error", "initialization_error"].forEach((eventName) => {
-        player.addListener(eventName, ({ message }) => {
-          setSpotifyError(message || "Spotify player error.");
-        });
-      });
-
-      player.connect();
-      spotifyPlayerRef.current = player;
-      spotifySdkInitRef.current = true;
-    };
-
-    if (window.Spotify) {
-      initPlayer();
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://sdk.scdn.co/spotify-player.js";
-    script.async = true;
-    document.body.appendChild(script);
-    window.onSpotifyWebPlaybackSDKReady = initPlayer;
-  }, [spotifyAccessToken]);
-
-  useEffect(() => {
-    if (!spotifyPlayerRef.current) return;
-    spotifyPlayerRef.current.setVolume(spotifyVolume / 100).catch(() => {});
-  }, [spotifyVolume]);
-
-  const spotifySelectedPlaylist = spotifyPlaylists.find((playlist) => playlist.id === spotifySelectedPlaylistId) || spotifyPlaylists[0] || null;
-
-  const startSpotifyPlaylist = async () => {
-    if (!spotifySelectedPlaylist) {
-      setSpotifyError("Pick a playlist first.");
-      return;
-    }
-
-    if (!spotifyDeviceId) {
-      setSpotifyError("Spotify player is still connecting. Wait a moment and try again.");
-      return;
-    }
-
-    try {
-      setSpotifyBusy(true);
-      setSpotifyError("");
-      await transferSpotifyPlayback(spotifyDeviceId, false);
-      await spotifyApi(`/me/player/play?device_id=${spotifyDeviceId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ context_uri: spotifySelectedPlaylist.uri }),
-      });
-      setSpotifyPlayerPaused(false);
-      fetchSpotifyPlayback();
-    } catch (error) {
-      setSpotifyError(error.message);
-    } finally {
-      setSpotifyBusy(false);
-    }
-  };
-
-  const pauseSpotify = async () => {
-    try {
-      await spotifyApi(`/me/player/pause?device_id=${spotifyDeviceId}`, { method: "PUT" });
-      setSpotifyPlayerPaused(true);
-    } catch (error) {
-      setSpotifyError(error.message);
-    }
-  };
-
-  const resumeSpotify = async () => {
-    try {
-      await spotifyApi(`/me/player/play?device_id=${spotifyDeviceId}`, { method: "PUT" });
-      setSpotifyPlayerPaused(false);
-    } catch (error) {
-      setSpotifyError(error.message);
-    }
-  };
-
-  const skipSpotify = async (direction = "next") => {
-    try {
-      await spotifyApi(`/me/player/${direction}?device_id=${spotifyDeviceId}`, { method: "POST" });
-      window.setTimeout(fetchSpotifyPlayback, 450);
-    } catch (error) {
-      setSpotifyError(error.message);
-    }
-  };
-
 
   const pushMessage = (message) => {
     setUnlockMessage(message);
@@ -1345,7 +907,6 @@ const spotifyRedirectUri = "https://cat-study-timer.vercel.app";
   const heatmapDays = useMemo(() => getLastNDays(dailyMinutes, 84), [dailyMinutes]);
   const heatmapColumns = useMemo(() => getWeeklyHeatmapColumns(heatmapDays), [heatmapDays]);
 
-
   const catMood = useMemo(() => {
     if (isCelebrating) {
       return {
@@ -1659,7 +1220,6 @@ const spotifyRedirectUri = "https://cat-study-timer.vercel.app";
           </div>
         </div>
 
-
         <div className="productivity-grid">
           <section className="glass panel tasks-panel interactive-panel">
             <div className="panel-top">
@@ -1863,112 +1423,6 @@ const spotifyRedirectUri = "https://cat-study-timer.vercel.app";
                   </div>
                 </div>
               </div>
-
-              <aside className="spotify-card interactive-card">
-                <div className="spotify-card-head">
-                  <div>
-                    <span className="mini-panel-label">Spotify</span>
-                    <strong>{spotifyProfile?.display_name || "Connect your premium account"}</strong>
-                  </div>
-                  <span className={`spotify-status ${spotifyReady ? "ready" : "idle"}`}>
-                    {spotifyAccessToken ? (spotifyReady ? "Player ready" : "Connecting") : "Disconnected"}
-                  </span>
-                </div>
-
-                {!spotifyAccessToken ? (
-                  <div className="spotify-empty-state">
-                    <p>
-                      Link Spotify to fill this space with your playlists, now playing, and playback controls.
-                    </p>
-                    <button className="main-btn primary" onClick={connectSpotify} disabled={spotifyBusy || !spotifyClientId}>
-                      {spotifyBusy ? "Redirecting..." : spotifyClientId ? "Connect Spotify" : "Add Spotify client ID"}
-                    </button>
-                    <small>
-                      Client ID missing? Add <code>VITE_SPOTIFY_CLIENT_ID</code> and <code>VITE_SPOTIFY_REDIRECT_URI</code> in your env.
-                    </small>
-                  </div>
-                ) : (
-                  <>
-                    <div className="spotify-track-card">
-                      {spotifyCurrentTrack?.image ? (
-                        <img src={spotifyCurrentTrack.image} alt={spotifyCurrentTrack.album || spotifyCurrentTrack.name} className="spotify-art" />
-                      ) : (
-                        <div className="spotify-art spotify-art-placeholder">♫</div>
-                      )}
-
-                      <div className="spotify-track-copy">
-                        <span className="mini-panel-label">Now playing</span>
-                        <strong>{spotifyCurrentTrack?.name || "Nothing playing yet"}</strong>
-                        <small>{spotifyCurrentTrack?.artists || "Pick a playlist below to start a focus mix."}</small>
-                      </div>
-                    </div>
-
-                    <div className="spotify-playlist-card">
-                      <label className="mini-panel-label" htmlFor="spotifyPlaylistSelect">Focus playlist</label>
-                      <select
-                        id="spotifyPlaylistSelect"
-                        className="spotify-select"
-                        value={spotifySelectedPlaylistId}
-                        onChange={(e) => setSpotifySelectedPlaylistId(e.target.value)}
-                      >
-                        {spotifyPlaylists.length ? (
-                          spotifyPlaylists.map((playlist) => (
-                            <option key={playlist.id} value={playlist.id}>{playlist.name}</option>
-                          ))
-                        ) : (
-                          <option value="">No playlists found</option>
-                        )}
-                      </select>
-                    </div>
-
-                    <div className="spotify-controls">
-                      <button className="spotify-control-btn" onClick={() => skipSpotify("previous")} type="button">⏮</button>
-                      <button
-                        className="spotify-control-btn spotify-control-btn-main"
-                        onClick={() => (spotifyPlayerPaused ? resumeSpotify() : pauseSpotify())}
-                        type="button"
-                      >
-                        {spotifyPlayerPaused ? "▶" : "⏸"}
-                      </button>
-                      <button className="spotify-control-btn" onClick={() => skipSpotify("next")} type="button">⏭</button>
-                    </div>
-
-                    <div className="spotify-actions-row">
-                      <button className="main-btn secondary" onClick={startSpotifyPlaylist} type="button" disabled={!spotifySelectedPlaylist || spotifyBusy}>
-                        {spotifyBusy ? "Starting..." : "Play selected playlist"}
-                      </button>
-                      <button className="main-btn ghost" onClick={fetchSpotifyPlayback} type="button">
-                        Sync now
-                      </button>
-                    </div>
-
-                    <div className="sound-controls-card spotify-volume-card interactive-card">
-                      <div className="setting-head">
-                        <label>Spotify volume</label>
-                        <span>{spotifyVolume}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={spotifyVolume}
-                        onChange={(e) => setSpotifyVolume(Number(e.target.value))}
-                      />
-                    </div>
-
-                    <div className="spotify-footer-links">
-                      {spotifySelectedPlaylist?.external_urls?.spotify ? (
-                        <a href={spotifySelectedPlaylist.external_urls.spotify} target="_blank" rel="noreferrer" className="spotify-link">
-                          Open playlist in Spotify
-                        </a>
-                      ) : null}
-                      <button className="text-btn" onClick={disconnectSpotify} type="button">Disconnect</button>
-                    </div>
-                  </>
-                )}
-
-                {spotifyError ? <div className="spotify-error">{spotifyError}</div> : null}
-              </aside>
             </div>
           </div>
 
