@@ -109,6 +109,13 @@ const CAT_EVOLUTIONS = [
   },
 ];
 
+const BREAK_SUGGESTIONS = [
+  "Drink a glass of water",
+  "Roll your shoulders and stretch your neck",
+  "Look away from the screen for 20 seconds",
+  "Take 5 slow breaths",
+];
+
 const STORAGE_KEY = "cat-study-pro-dashboard";
 const XP_PER_SESSION = 10;
 const XP_PER_LEVEL = 50;
@@ -357,9 +364,16 @@ export default function App() {
   const nextCatUnlock = CAT_EVOLUTIONS.find((cat) => cat.level > level);
 
   const totalDuration = (mode === "study" ? studyMinutes : breakMinutes) * 60;
-  const progressPercent = ((totalDuration - timeLeft) / totalDuration) * 100;
+  const progressPercent = Math.max(
+    0,
+    Math.min(100, ((totalDuration - timeLeft) / totalDuration) * 100)
+  );
   const sessionMinutesElapsed = Math.floor((totalDuration - timeLeft) / 60);
   const sessionMinutesLeft = Math.ceil(timeLeft / 60);
+
+  const ringRadius = 124;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const ringOffset = ringCircumference - (progressPercent / 100) * ringCircumference;
 
   const weeklyActivity = getLast7Days(dailySessions);
   const weeklyPeak = Math.max(...weeklyActivity.map((day) => day.value), 1);
@@ -424,6 +438,16 @@ export default function App() {
     };
   }, [isCelebrating, mode, running, sessionMinutesLeft, currentEvolution]);
 
+  const timerStateLabel = isCelebrating
+    ? "Completed"
+    : running
+    ? mode === "study"
+      ? "Focus in progress"
+      : "Break in progress"
+    : mode === "study"
+    ? "Ready to focus"
+    : "Ready to recharge";
+
   return (
     <div
       className={`app ${darkMode ? "dark" : ""} ${
@@ -456,7 +480,7 @@ export default function App() {
         </div>
 
         <div className="hero-grid">
-          <section className="glass panel timer-panel">
+          <section className="glass panel timer-panel interactive-panel">
             <div className="panel-top">
               <div>
                 <p className="section-label">Current cycle</p>
@@ -489,9 +513,32 @@ export default function App() {
             </div>
 
             <div className="timer-display-wrap">
-              <div className="timer-display">
-                {formatTime(minutes)}:{formatTime(seconds)}
+              <div className={`timer-ring-shell ${mode} ${running ? "running" : ""}`}>
+                <svg className="timer-ring" viewBox="0 0 300 300" aria-hidden="true">
+                  <circle className="timer-ring-track" cx="150" cy="150" r={ringRadius} />
+                  <circle
+                    className="timer-ring-progress"
+                    cx="150"
+                    cy="150"
+                    r={ringRadius}
+                    style={{
+                      strokeDasharray: ringCircumference,
+                      strokeDashoffset: ringOffset,
+                    }}
+                  />
+                </svg>
+
+                <div className="timer-display-core">
+                  <span className="timer-kicker">{timerStateLabel}</span>
+                  <div className="timer-display">
+                    {formatTime(minutes)}:{formatTime(seconds)}
+                  </div>
+                  <div className="timer-caption">
+                    {mode === "study" ? "Stay with one task" : "Let your brain reset"}
+                  </div>
+                </div>
               </div>
+
               <div className="timer-status-row">
                 <span className="timer-chip">
                   {running ? "● In progress" : "○ Waiting"}
@@ -508,7 +555,7 @@ export default function App() {
               <div
                 className="progress-fill"
                 style={{
-                  width: `${Math.max(0, Math.min(progressPercent, 100))}%`,
+                  width: `${progressPercent}%`,
                 }}
               />
             </div>
@@ -531,8 +578,33 @@ export default function App() {
               </button>
             </div>
 
+            {mode === "break" ? (
+              <div className="break-helper-card">
+                <div className="break-helper-head">
+                  <div>
+                    <p className="section-label">Break guide</p>
+                    <h3>Use this break well</h3>
+                  </div>
+                  <span className="break-helper-badge">💤 Reset mode</span>
+                </div>
+
+                <p className="break-helper-copy">
+                  Your kitten is resting. Step away for a moment so your next focus sprint feels easier.
+                </p>
+
+                <div className="break-suggestion-list">
+                  {BREAK_SUGGESTIONS.map((tip) => (
+                    <div key={tip} className="break-tip">
+                      <span>•</span>
+                      <span>{tip}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             <div className="settings-grid">
-              <div className="setting-card">
+              <div className="setting-card interactive-card">
                 <div className="setting-head">
                   <label>Study time</label>
                   <span>{studyMinutes} min</span>
@@ -547,7 +619,7 @@ export default function App() {
                 />
               </div>
 
-              <div className="setting-card break-setting">
+              <div className="setting-card break-setting interactive-card">
                 <div className="setting-head">
                   <label>Break time</label>
                   <span>{breakMinutes} min</span>
@@ -564,7 +636,7 @@ export default function App() {
             </div>
           </section>
 
-          <section className="glass panel cat-panel">
+          <section className="glass panel cat-panel interactive-panel">
             <div className="cat-panel-head">
               <span className="cat-badge">
                 {catMood.emoji} {catMood.badge}
@@ -572,10 +644,10 @@ export default function App() {
               <span className="cat-mini-status">Energy {catEnergy}%</span>
             </div>
 
-            <div className="cat-frame">
+            <div className={`cat-frame ${running ? "active" : ""} ${mode === "break" ? "rest-mode" : "focus-mode"}`}>
               {running && mode === "study" ? <div className="pulse-ring" /> : null}
               <img
-                className="cat-image"
+                className={`cat-image ${running ? "is-running" : ""} ${mode === "break" ? "is-resting" : "is-focused"} ${isCelebrating ? "is-celebrating" : ""}`}
                 src={currentEvolution.img}
                 alt={currentEvolution.name}
               />
@@ -593,7 +665,7 @@ export default function App() {
             <p className="cat-copy">{catMood.text}</p>
             <p className="cat-quote">“{catMood.quote}”</p>
 
-            <div className="energy-card">
+            <div className="energy-card interactive-card">
               <div className="energy-head">
                 <span>Cat energy</span>
                 <strong>{catEnergy}%</strong>
@@ -607,13 +679,13 @@ export default function App() {
             </div>
 
             <div className="cat-stats-mini">
-              <div>
+              <div className="interactive-card">
                 <span>Next sprint</span>
                 <strong>
                   {mode === "study" ? `${studyMinutes} min` : `${breakMinutes} min`}
                 </strong>
               </div>
-              <div>
+              <div className="interactive-card">
                 <span>Today</span>
                 <strong>{completedTodayMinutes} min</strong>
               </div>
@@ -628,28 +700,28 @@ export default function App() {
         </div>
 
         <div className="stats-grid">
-          <div className="glass stat-card stat-card-primary">
+          <div className="glass stat-card stat-card-primary interactive-panel">
             <span className="stat-icon">🔥</span>
             <span className="stat-label">Current streak</span>
             <strong className="stat-value">{currentStreak}</strong>
             <span className="stat-sub">Keep the chain alive tomorrow.</span>
           </div>
 
-          <div className="glass stat-card">
+          <div className="glass stat-card interactive-panel">
             <span className="stat-icon">🎯</span>
             <span className="stat-label">Sessions today</span>
             <strong className="stat-value">{sessionsToday}</strong>
             <span className="stat-sub">Focus rounds completed today.</span>
           </div>
 
-          <div className="glass stat-card">
+          <div className="glass stat-card interactive-panel">
             <span className="stat-icon">⏱️</span>
             <span className="stat-label">Focus hours</span>
             <strong className="stat-value">{totalStudyHours}h</strong>
             <span className="stat-sub">Total deep work time saved.</span>
           </div>
 
-          <div className="glass stat-card">
+          <div className="glass stat-card interactive-panel">
             <span className="stat-icon">🏆</span>
             <span className="stat-label">Best streak</span>
             <strong className="stat-value">{longestStreak}</strong>
@@ -658,7 +730,7 @@ export default function App() {
         </div>
 
         <div className="bottom-grid">
-          <section className="glass panel xp-panel">
+          <section className="glass panel xp-panel interactive-panel">
             <div className="panel-top">
               <div>
                 <p className="section-label">Progression</p>
@@ -676,7 +748,7 @@ export default function App() {
                 </p>
               </div>
 
-              <div className="next-unlock-card">
+              <div className="next-unlock-card interactive-card">
                 <span>Next unlock</span>
                 <strong>{nextReward}</strong>
                 <small>{xpToNextLevel} XP to go</small>
@@ -691,21 +763,21 @@ export default function App() {
             </div>
 
             <div className="xp-meta-grid">
-              <div className="mini-panel">
+              <div className="mini-panel interactive-card">
                 <span className="mini-panel-label">Next level</span>
                 <strong>{xpToNextLevel} XP left</strong>
               </div>
-              <div className="mini-panel">
+              <div className="mini-panel interactive-card">
                 <span className="mini-panel-label">Session bonus</span>
                 <strong>+{XP_PER_SESSION} XP each</strong>
               </div>
-              <div className="mini-panel">
+              <div className="mini-panel interactive-card">
                 <span className="mini-panel-label">Unlocked cats</span>
                 <strong>
                   {unlockedCats.length} / {CAT_EVOLUTIONS.length}
                 </strong>
               </div>
-              <div className="mini-panel">
+              <div className="mini-panel interactive-card">
                 <span className="mini-panel-label">Current cat</span>
                 <strong>{currentEvolution.name}</strong>
               </div>
@@ -723,7 +795,7 @@ export default function App() {
               ))}
             </div>
 
-            <div className="weekly-progress-card">
+            <div className="weekly-progress-card interactive-card">
               <div className="weekly-progress-head">
                 <span>Weekly focus rhythm</span>
                 <strong>
@@ -750,34 +822,34 @@ export default function App() {
             </div>
           </section>
 
-          <section className="glass panel summary-panel">
+          <section className="glass panel summary-panel interactive-panel">
             <p className="section-label">Overview</p>
             <h2>Productivity snapshot</h2>
 
             <div className="summary-list">
-              <div className="summary-row">
+              <div className="summary-row interactive-card">
                 <span>Completed sessions</span>
                 <strong>{studySessions}</strong>
               </div>
-              <div className="summary-row">
+              <div className="summary-row interactive-card">
                 <span>Mode</span>
                 <strong>{mode === "study" ? "Focus" : "Break"}</strong>
               </div>
-              <div className="summary-row">
+              <div className="summary-row interactive-card">
                 <span>Sound</span>
                 <strong>{soundOn ? "Enabled" : "Muted"}</strong>
               </div>
-              <div className="summary-row">
+              <div className="summary-row interactive-card">
                 <span>Theme</span>
                 <strong>{darkMode ? "Dark" : "Light"}</strong>
               </div>
-              <div className="summary-row">
+              <div className="summary-row interactive-card">
                 <span>Last unlock</span>
                 <strong>{lastUnlockedCat?.name || currentEvolution.name}</strong>
               </div>
             </div>
 
-            <div className="focus-state-card">
+            <div className="focus-state-card interactive-card">
               <span className="focus-state-label">Focus state</span>
               <strong>{running ? "Deep work mode active" : "Ready to begin"}</strong>
               <p>
@@ -789,7 +861,7 @@ export default function App() {
           </section>
         </div>
 
-        <section className="glass panel collection-panel">
+        <section className="glass panel collection-panel interactive-panel">
           <div className="panel-top">
             <div>
               <p className="section-label">Collection</p>
